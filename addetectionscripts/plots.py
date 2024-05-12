@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import xgboost as xgb
 
 def plot_correlation(X_df: pd.DataFrame, y_df: pd.DataFrame, target_col: str = 'is_attributed',
                      save_path: str = None):
@@ -28,6 +29,18 @@ def plot_correlation(X_df: pd.DataFrame, y_df: pd.DataFrame, target_col: str = '
     
     plt.close(fig)
     return fig
+
+
+def plot_feature_importance(model, booster):
     
-def plot_residuals(modle, dvalid, valid_y, save_path=None):
-    
+    fig, ax = plt.subplots(figsize=(10,8))
+    importance_type = 'gain'
+    xgb.plot_importance(
+        model,
+        importance_type=importance_type,
+        ax=ax,
+        title=f"Feature Importance Based On {importance_type}"
+    )
+    plt.tight_layout()
+    plt.close(fig)
+    return fig
