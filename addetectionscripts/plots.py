@@ -1,0 +1,33 @@
+# Plots for mlflow logging
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+def plot_correlation(X_df: pd.DataFrame, y_df: pd.DataFrame, target_col: str = 'is_attributed',
+                     save_path: str = None):
+    
+    # Combine the X and y data again
+    X_df[target_col] = y_df[target_col]
+    # Get corr values w/ all vars wrt the target
+    correlations = X_df.corr()[target_col].drop(target_col).sort_values()
+    
+
+    # Make bar plot
+    fig = plt.figure(figsize=(12, 8))
+    plt.barh(correlations.index, correlations.values)
+    
+    # Set Labels
+    plt.title(f'Correlation with {target_col}')
+    plt.xlabel('Correlation Coefficient')
+    plt.ylabel('Variable')
+    plt.grid(axis='x')
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, format='png', dpi=600)
+    
+    plt.close(fig)
+    return fig
+    
+def plot_residuals(modle, dvalid, valid_y, save_path=None):
+    

@@ -25,6 +25,7 @@ def sample_data() -> pd.DataFrame:
             'day':[6, 6]}
     
     df = pd.DataFrame(data)
+    df['click_time'] = pd.to_datetime(df['click_time'])
     X = df.drop(columns=['is_attributed', 'attributed_time'])
     y = df[['is_attributed']]
 
