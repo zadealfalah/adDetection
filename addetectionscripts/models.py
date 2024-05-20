@@ -2,6 +2,40 @@ import mlflow
 import xgboost as xgb
 from sklearn.metrics import roc_auc_score
 
+class FinetunedXGB():
+    def __init__(self, model=None, params=None, num_rounds=100):
+        self.params = params if params is not None else {
+            'objective': 'binary:logistic',
+            'eval_metric': 'auc'
+        }
+        self.num_rounds = num_rounds
+        self.model = model
+        
+        
+    def train(self, X_train, y_train, X_val, y_val):
+        dtrain = xgb.DMatrix(X_train, label=y_train)
+        # evals = 
+        
+        with mlflow.start_run() as run:
+            mlflow.log_params(self.params)
+            mlflow.log_param("num_rounds", self.num_rounds)
+            
+            # Train model
+            self.model = xgb.train(self.params, dtrain, self.num_rounds, evals)
+            # Log the model
+            mlflow.xgboost.log_model(self.model, "model")
+            # Log metrics 
+            
+    def predict(self, X):
+        pass
+    def evaluate(self, X, y, log_metrics=False):
+        pass
+    def save_model(self, filepath):
+        pass
+    def load_model(self, filepath):
+        pass
+    
+
 def objective(trial, train_matrix, val_matrix, y_val):
     with mlflow.start_run(nested=True):
         # Hparams
