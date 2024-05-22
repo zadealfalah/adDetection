@@ -133,49 +133,52 @@ class OptunaXGBoost:
             model_uri = mlflow.get_artifact_uri(artifact_path)
             
 
-X_us, y_us, _ = init_datasets()
-X_us = add_hour_day_from_clicktime(X_us)
 
-grouping_categories = [
-    # IP with every other base
-    ['ip', 'channel'],
-    ['ip', 'device'], 
-    ['ip', 'os'],
-    ['ip', 'app'],
-    # IP and time features - must be done after adding time features
-    ['ip', 'day', 'hour'],
-    # Perhaps IP isn't as important
-    ['app', 'channel'],
-    # Triplet(s)
-    ['ip', 'app', 'os'],
-    # Quartet(s)
-    ['ip', 'device', 'os', 'app']
-    # Exclude all 5 together as these will be used for grouping
-]
-grouping_functions = ['nunique', 'cumcount']
+if __name__ == "__main__":
 
-X_us = add_groupby_user_features(X_us, grouping_categories=grouping_categories,
-                                grouping_functions=grouping_functions)
+    X_us, y_us, _ = init_datasets()
+    X_us = add_hour_day_from_clicktime(X_us)
 
-X_us = add_next_click(X_us)
+    grouping_categories = [
+        # IP with every other base
+        ['ip', 'channel'],
+        ['ip', 'device'], 
+        ['ip', 'os'],
+        ['ip', 'app'],
+        # IP and time features - must be done after adding time features
+        ['ip', 'day', 'hour'],
+        # Perhaps IP isn't as important
+        ['app', 'channel'],
+        # Triplet(s)
+        ['ip', 'app', 'os'],
+        # Quartet(s)
+        ['ip', 'device', 'os', 'app']
+        # Exclude all 5 together as these will be used for grouping
+    ]
+    grouping_functions = ['nunique', 'cumcount']
 
-cols_to_bin = ['next_click'] # Just bin the one for now
+    X_us = add_groupby_user_features(X_us, grouping_categories=grouping_categories,
+                                    grouping_functions=grouping_functions)
 
-X_us = log_bin_column(X_us, cols_to_bin)
+    X_us = add_next_click(X_us)
 
-cols_to_drop = ['click_time']
+    cols_to_bin = ['next_click'] # Just bin the one for now
 
-# Drop the original click_time feature
-X_us.drop(columns=cols_to_drop, inplace=True)
+    X_us = log_bin_column(X_us, cols_to_bin)
 
-test_size = 0.2
-X_train, X_val, y_train, y_val = train_test_split(X_us, y_us, test_size=test_size, random_state=1233)
+    cols_to_drop = ['click_time']
 
-# Set to Dmatrix format for training speed
-dtrain = xgb.DMatrix(X_train, label=y_train)
-dvalid = xgb.DMatrix(X_val, label=y_val)
+    # Drop the original click_time feature
+    X_us.drop(columns=cols_to_drop, inplace=True)
 
-booster = OptunaXGBoost(run_name=run_name, 
-              X_train=X_train, y_train=y_train, X_valid=X_val, y_valid=y_val,
-              feature_set_version=2, dtrain=dtrain, dvalid=dvalid)
-booster.start_mlflow_runs()
+    test_size = 0.2
+    X_train, X_val, y_train, y_val = train_test_split(X_us, y_us, test_size=test_size, random_state=1233)
+
+    # Set to Dmatrix format for training speed
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+    dvalid = xgb.DMatrix(X_val, label=y_val)
+
+    booster = OptunaXGBoost(run_name=run_name, 
+                X_train=X_train, y_train=y_train, X_valid=X_val, y_valid=y_val,
+                feature_set_version=2, dtrain=dtrain, dvalid=dvalid)
+    booster.start_mlflow_runs()
