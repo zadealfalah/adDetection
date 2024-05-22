@@ -1,0 +1,13 @@
+site_name: Ad Detection Classification
+repo_url: https://github.com/zadealfalah/adDetection
+nav:
+  - Home: index.md
+  - addetectionscripts:
+    - data: addetectionscripts/transforms.md
+    - train: addetectionscripts/train.md
+    - utils: addetectionscripts/utils.md
+theme: readthedocs
+plugins:
+  - mkdocstrings
+watch:
+  - .  # reload docs for any file changes
