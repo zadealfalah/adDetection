@@ -20,12 +20,12 @@ def init_datasets(data_folder="datasets", to_load: List[str] = ['X_us', 'y_us', 
     # Read CSV files into pandas DataFrames
     X_us, y_us, test = None, None, None
     if 'X_us' in to_load:
-        X_us = pd.read_csv(f'../{data_folder}/X_us.csv')
+        X_us = pd.read_csv(f'./{data_folder}/X_us.csv')
         X_us['click_time'] = pd.to_datetime(X_us['click_time'])
     if 'y_us' in to_load:
-        y_us = pd.read_csv(f'../{data_folder}/y_us.csv')
+        y_us = pd.read_csv(f'./{data_folder}/y_us.csv')
     if 'test' in to_load:
-        test = pd.read_csv(f'../{data_folder}/test.csv')
+        test = pd.read_csv(f'./{data_folder}/test.csv')
         test['click_time'] = pd.to_datetime(test['click_time'])
     
 
