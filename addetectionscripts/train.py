@@ -7,7 +7,6 @@ from utils import *
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
-
 # Set optuna to log only errors
 optuna.logging.set_verbosity(optuna.logging.ERROR)
 run_name = "Test 4"
