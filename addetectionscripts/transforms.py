@@ -3,19 +3,19 @@ from typing import List
 import numpy as np
 
 
-def init_datasets(data_folder="datasets", to_load: List[str] = ['X_us', 'y_us', 'test']):
+def init_datasets(data_folder: str = "datasets", to_load: List[str] = ['X_us', 'y_us', 'test']) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Reads the split CSV files into pandas DataFrames.
-    
+
     Example usage:
         X_us, y_us, test = init_dataset('raw_data')
 
     Args:
-    data_folder (str): Path to the folder containing the CSV files.
-    to_load (List[str]): List of strings for which datasets to load.  Defaults to all three (X_us, y_us, test)
-    
+        data_folder (str): Path to the folder containing the CSV files.
+        to_load (List[str]): List of strings for which datasets to load. Defaults to all three (X_us, y_us, test).
+
     Returns:
-    tuple: A tuple containing three pandas DataFrames: (X_us, y_us, test).
+        tuple: A tuple containing three pandas DataFrames: (X_us, y_us, test).
     """
     # Read CSV files into pandas DataFrames
     X_us, y_us, test = None, None, None
@@ -35,8 +35,13 @@ def init_datasets(data_folder="datasets", to_load: List[str] = ['X_us', 'y_us', 
 
 def add_hour_day_from_clicktime(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Adds the hour and day columns as ints from the click_time column
-    Returns the input df with the hour, day columns added.  
+    Adds the hour and day columns as integers from the click_time column.
+    
+    Args:
+        df (pd.DataFrame): The input DataFrame containing a 'click_time' column.
+
+    Returns:
+        pd.DataFrame: The input DataFrame with 'hour' and 'day' columns added as integers.
     """
     df['hour'] = pd.to_datetime(df['click_time']).dt.hour.astype('uint8')
     df['day'] = pd.to_datetime(df['click_time']).dt.day.astype('uint8')

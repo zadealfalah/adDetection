@@ -7,14 +7,35 @@ from utils import *
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
+from optuna.study import Study
+from optuna.trial import FrozenTrial
+from typing import Optional, Dict
+from optuna.trial import Trial
+
 # Set optuna to log only errors
 optuna.logging.set_verbosity(optuna.logging.ERROR)
 run_name = "Test 4"
 
 class OptunaXGBoost:
-    def __init__(self, run_name, X_train, y_train, X_valid, y_valid, 
-                 feature_set_version, experiment_name='Attributed Class.',
-                 dtrain=None, dvalid=None, num_trials=50, tracking_uri=fr'http://127.0.0.1:8080'):
+    def __init__(self, run_name: str, X_train: pd.DataFrame, y_train: pd.Series, X_valid: pd.DataFrame, y_valid: pd.Series,
+                 feature_set_version: str, experiment_name: str = 'Attributed Class.', dtrain: Optional[xgb.DMatrix] = None,
+                 dvalid: Optional[xgb.DMatrix] = None, num_trials: int = 50, tracking_uri: str = r'http://127.0.0.1:8080'):
+        """
+        Initialize the OptunaXGBoost class.
+
+        Args:
+            run_name (str): Name of the MLflow run.
+            X_train (pd.DataFrame): Training input features.
+            y_train (pd.Series): Training target variable.
+            X_valid (pd.DataFrame): Validation input features.
+            y_valid (pd.Series): Validation target variable.
+            feature_set_version (str): Version of the feature set.
+            experiment_name (str, optional): Name of the MLflow experiment. Defaults to 'Attributed Class.'.
+            dtrain (Optional[xgb.DMatrix], optional): Training DMatrix. Defaults to None.
+            dvalid (Optional[xgb.DMatrix], optional): Validation DMatrix. Defaults to None.
+            num_trials (int, optional): Number of optimization trials. Defaults to 50.
+            tracking_uri (str, optional): URI of the MLflow tracking server. Defaults to 'http://127.0.0.1:8080'.
+        """
         self.run_name = run_name
         self.feature_set_version = feature_set_version
         self.num_trials = num_trials
@@ -36,7 +57,18 @@ class OptunaXGBoost:
         self.experiment_id = get_or_create_experiment(experiment_name)
         mlflow.set_experiment(experiment_id=self.experiment_id)
     
-    def objective(self, trial, params=None):
+    def objective(self, trial: Trial, params: Optional[Dict[str, float]] = None) -> float:
+        """
+        Objective function for XGBoost hyperparameter optimization.
+
+        Args:
+            trial (optuna.trial.Trial): A trial object used to explore the search space.
+            params (Optional[Dict[str, float]]): A dictionary containing XGBoost parameters. If None,
+                default parameters are suggested.
+
+        Returns:
+            float: The ROC AUC score on the validation set.
+        """
         with mlflow.start_run(nested=True):
             if params is not None:
                 params = params
@@ -62,9 +94,9 @@ class OptunaXGBoost:
             mlflow.log_metric('auc', auc_score)
         return auc_score
 
-    def best_trial_callback(self, study, frozen_trial):
+    def best_trial_callback(self, study: Study, frozen_trial: FrozenTrial) -> None:
         """
-        Logging callback that will report when a new trial iteration improves upon existing
+        Logging callback that reports when a new trial iteration improves upon existing
         best trial values.
 
         Note: This callback is not intended for use in distributed computing systems such as Spark
@@ -72,6 +104,13 @@ class OptunaXGBoost:
         workers or agents.
         The race conditions with file system state management for distributed trials will render
         inconsistent values with this callback.
+
+        Args:
+            study (optuna.study.Study): The study object.
+            frozen_trial (optuna.trial.FrozenTrial): The frozen trial object.
+
+        Returns:
+            None
         """
 
         winner = study.user_attrs.get("winner", None)
@@ -87,7 +126,16 @@ class OptunaXGBoost:
             else:
                 print(f"Initial trial {frozen_trial.number} achieved value: {frozen_trial.value}")
                 
-    def start_mlflow_runs(self, nested=True):
+    def start_mlflow_runs(self, nested: bool = True) -> None:
+        """
+        Start MLflow runs for hyperparameter optimization.
+
+        Args:
+            nested (bool): Whether to have nested runs. Defaults to True.
+
+        Returns:
+            None
+        """
         with mlflow.start_run(experiment_id=self.experiment_id, run_name=self.run_name, nested=nested):
             # Init Optuna
             study = optuna.create_study(direction='maximize') # Want to max our AUC
