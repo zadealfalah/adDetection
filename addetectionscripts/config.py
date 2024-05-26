@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import mlflow
+from ray import tune
 
 # Directories
 ROOT_DIR = Path(__file__).parent.parent.absolute()
@@ -89,7 +90,36 @@ transformations_config = {
 
 
 
-
+training_config = {
+    'xgb_params': {
+        'objective': 'binary:logistic',
+        'eval_metric': 'auc',
+        'booster': ['gbtree', 'dart'],
+        'lambda': tune.loguniform(1e-8, 1.0),
+        'alpha': tune.loguniform(1e-8, 1.0),
+        'max_depth': tune.randint(1, 6),
+        'eta': tune.loguniform(1e-8, 1.0),
+        'gamma': tune.loguniform(1e-8, 1.0),
+        'grow_policy': ['depthwise', 'lossguide']
+        
+        ## Below were the optuna hparam search spaces
+        # 'booster': trial.suggest_categorical("booster", ["gbtree", "dart"]),
+        # 'lambda': trial.suggest_float("lambda", 1e-8, 1.0, log=True),
+        # 'alpha': trial.suggest_float("alpha", 1e-8, 1.0, log=True),
+        # 'max_depth': trial.suggest_int("max_depth", 1, 5),
+        # 'eta': trial.suggest_float("eta", 1e-8, 1.0, log=True),
+        # 'gamma': trial.suggest_float("gamma", 1e-8, 1.0, log=True),
+        # 'grow_policy': trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"])
+    },
+    # Just have 1-1 for testing for now.
+    'ray_params': {
+        'num_actors' : 1,
+        'cpus_per_actor' : 1
+    },
+    'early_stopping_rounds': 10,
+    'num_boost_round' : 50
+    
+}
 
 
 logging.config.dictConfig(logging_config)

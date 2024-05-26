@@ -12,7 +12,7 @@ def load_data(dataset_loc: str, num_samples: int = None, seed: int = 1325) -> Da
     ds = ray.data.read_csv(dataset_loc)
     ds = ds.random_shuffle(seed=seed)
     ds = ray.data.from_items(ds.take(num_samples)) if num_samples else ds
-    
+    return ds
     
 def stratify_split_ds(ds: Dataset, test_size: float = 0.2, stratify: str = 'is_attributed', shuffle: bool = True, seed: int = 1325) -> Tuple[Dataset, Dataset]:
     def _add_split(df: pd.DataFrame) -> pd.DataFrame:  
@@ -36,8 +36,14 @@ def stratify_split_ds(ds: Dataset, test_size: float = 0.2, stratify: str = 'is_a
     # Shuffle each split (required)
     train_ds = train_ds.random_shuffle(seed=seed)
     test_ds = test_ds.random_shuffle(seed=seed)
+    
+    X_train = train_ds.drop(columns=[stratify])
+    y_train = train_ds[[stratify]]
+    
+    X_val = test_ds.drop(columns=[stratify])
+    y_val = test_ds[[stratify]]
 
-    return train_ds, test_ds
+    return X_train, X_val, y_train, y_val
 
 
 def add_hour_day_from_clicktime(df: pd.DataFrame) -> pd.DataFrame:
@@ -127,17 +133,19 @@ def add_next_click(df: pd.DataFrame, max_num_cats: int) -> pd.DataFrame:
     
     return df
 
-
-def apply_transforms(ds: Dataset, config: Dict,
-                transforms: List[str] = [add_hour_day_from_clicktime, add_groupby_user_features, add_next_click, log_bin_column]) -> Dataset:
-    
-    for transform in transforms:
-        transform_name = transform.__name__
-        params = config.get(transform_name, {})
-        try:
-            ds = ds.map_batches(transform, batch_format='pandas', fn_kwargs=params)
-            logger.info(f"Applied transformation: {transform_name}")
-        except Exception as e:
-            logger.error(f"Error applying transformation {transform_name}: {e}")
-            continue
-    return ds
+## Make in to a class so we can easily add more preprocessing steps if needed in the future
+## For now only really the transformations though
+class PreprocessData:
+    def apply_transforms(self, ds: Dataset, config: Dict,
+                    transforms: List[str] = [add_hour_day_from_clicktime, add_groupby_user_features, add_next_click, log_bin_column]) -> Dataset:
+        
+        for transform in transforms:
+            transform_name = transform.__name__
+            params = config.get(transform_name, {})
+            try:
+                ds = ds.map_batches(transform, batch_format='pandas', fn_kwargs=params)
+                logger.info(f"Applied transformation: {transform_name}")
+            except Exception as e:
+                logger.error(f"Error applying transformation {transform_name}: {e}")
+                continue
+        return ds

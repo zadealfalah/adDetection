@@ -5,7 +5,7 @@ def test_dataset(df):
     tag_values = [0, 1]
     df.expect_column_balues_to_be_in_set(column='is_attributed', value_set=tag_values)
     df.expect_column_values_to_not_be_null(column='is_attributed')
-    
+    df.expect_column_values_to_be_of_type(column='click_time', type_="pd.datetime")  # type adherence
     
     expectation_suite = df.get_expectation_suite(discard_failed_expectations=False)
     results = df.validate(expectation_suite=expectation_suite, only_return_failures=True).to_json_dict()

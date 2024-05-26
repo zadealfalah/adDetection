@@ -1,6 +1,9 @@
 import mlflow 
 from optuna_integration.mlflow import MLflowCallback
 from config import MLFLOW_TRACKING_URI
+import numpy as np
+import random
+import os
 
 def get_or_create_experiment(experiment_name: str) -> str:
     """
@@ -16,3 +19,9 @@ def get_or_create_experiment(experiment_name: str) -> str:
         return experiment.experiment_id
     else:
         return mlflow.create_experiment(experiment_name)
+
+
+def set_seeds(seed: int = 1325):
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
