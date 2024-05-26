@@ -1,36 +1,43 @@
 import pandas as pd
-from typing import List
+from typing import List, Dict, Tuple
+import ray
+from ray.data import Dataset
 import numpy as np
+from sklearn.model_selection import train_test_split
+from config import logger
 
 
-def init_datasets(data_folder: str = "datasets", to_load: List[str] = ['X_us', 'y_us', 'test']) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Reads the split CSV files into pandas DataFrames.
 
-    Example usage:
-        X_us, y_us, test = init_dataset('raw_data')
-
-    Args:
-        data_folder (str): Path to the folder containing the CSV files.
-        to_load (List[str]): List of strings for which datasets to load. Defaults to all three (X_us, y_us, test).
-
-    Returns:
-        tuple: A tuple containing three pandas DataFrames: (X_us, y_us, test).
-    """
-    # Read CSV files into pandas DataFrames
-    X_us, y_us, test = None, None, None
-    if 'X_us' in to_load:
-        X_us = pd.read_csv(f'./{data_folder}/X_us.csv')
-        X_us['click_time'] = pd.to_datetime(X_us['click_time'])
-    if 'y_us' in to_load:
-        y_us = pd.read_csv(f'./{data_folder}/y_us.csv')
-    if 'test' in to_load:
-        test = pd.read_csv(f'./{data_folder}/test.csv')
-        test['click_time'] = pd.to_datetime(test['click_time'])
+def load_data(dataset_loc: str, num_samples: int = None, seed: int = 1325) -> Dataset:
+    ds = ray.data.read_csv(dataset_loc)
+    ds = ds.random_shuffle(seed=seed)
+    ds = ray.data.from_items(ds.take(num_samples)) if num_samples else ds
     
+    
+def stratify_split_ds(ds: Dataset, test_size: float = 0.2, stratify: str = 'is_attributed', shuffle: bool = True, seed: int = 1325) -> Tuple[Dataset, Dataset]:
+    def _add_split(df: pd.DataFrame) -> pd.DataFrame:  
+        """Naively split a dataframe into train and test splits.
+        Add a column specifying whether it's the train or test split."""
+        train, test = train_test_split(df, test_size=test_size, shuffle=shuffle, random_state=seed)
+        train["_split"] = "train"
+        test["_split"] = "test"
+        return pd.concat([train, test])
 
-    return X_us, y_us, test
+    def _filter_split(df: pd.DataFrame, split: str) -> pd.DataFrame:
+        """Filter by data points that match the split column's value
+        and return the dataframe with the _split column dropped."""
+        return df[df["_split"] == split].drop("_split", axis=1)
 
+    # Train, test split with stratify
+    grouped = ds.groupby(stratify).map_groups(_add_split, batch_format="pandas")  # group by each unique value in the column we want to stratify on
+    train_ds = grouped.map_batches(_filter_split, fn_kwargs={"split": "train"}, batch_format="pandas")  # combine
+    test_ds = grouped.map_batches(_filter_split, fn_kwargs={"split": "test"}, batch_format="pandas")  # combine
+
+    # Shuffle each split (required)
+    train_ds = train_ds.random_shuffle(seed=seed)
+    test_ds = test_ds.random_shuffle(seed=seed)
+
+    return train_ds, test_ds
 
 
 def add_hour_day_from_clicktime(df: pd.DataFrame) -> pd.DataFrame:
@@ -90,12 +97,12 @@ def log_bin_column(df: pd.DataFrame, collist: List[str]) -> pd.DataFrame:
     return df
 
 
-def add_next_click(df: pd.DataFrame, max_num_cats: int = 2**26) -> pd.DataFrame:
+def add_next_click(df: pd.DataFrame, max_num_cats: int) -> pd.DataFrame:
     """ Adds the 'next_click' feature to a dataframe
 
     Args:
         df (pd.DataFrame): Input dataframe.  Copied - not changed.
-        max_num_cats (int): Max number of categories in our hash.  Defaults to 2**26. 
+        max_num_cats (int): Max number of categories in our hash.
     Returns:
         pd.DataFrame: Copy of the input dataframe with the 'next_click' feature added.
     """
@@ -119,3 +126,18 @@ def add_next_click(df: pd.DataFrame, max_num_cats: int = 2**26) -> pd.DataFrame:
     # df = log_bin_column(df, ['next_click'])
     
     return df
+
+
+def apply_transforms(ds: Dataset, config: Dict,
+                transforms: List[str] = [add_hour_day_from_clicktime, add_groupby_user_features, add_next_click, log_bin_column]) -> Dataset:
+    
+    for transform in transforms:
+        transform_name = transform.__name__
+        params = config.get(transform_name, {})
+        try:
+            ds = ds.map_batches(transform, batch_format='pandas', fn_kwargs=params)
+            logger.info(f"Applied transformation: {transform_name}")
+        except Exception as e:
+            logger.error(f"Error applying transformation {transform_name}: {e}")
+            continue
+    return ds

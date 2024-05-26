@@ -64,5 +64,34 @@ logging_config = {
     },
 }
 
+
+transformations_config = {
+    'add_groupby_user_features': {
+        'grouping_categories': [
+            ['ip', 'channel'],
+            ['ip', 'device'], 
+            ['ip', 'os'],
+            ['ip', 'app'],
+            ['ip', 'day', 'hour'],
+            ['app', 'channel'],
+            ['ip', 'app', 'os'],
+            ['ip', 'device', 'os', 'app']
+        ],
+        'grouping_functions': ['nunique', 'cumcount']
+    },
+    'add_next_click': {
+        'max_num_cats': 2**26
+    },
+    'log_bin_column' : {
+        'collist': ['next_click']
+    }
+}
+
+
+
+
+
+
 logging.config.dictConfig(logging_config)
 logger = logging.getLogger()
+

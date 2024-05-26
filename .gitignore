@@ -1,5 +1,4 @@
 *.env
-*.zip
 creds.json
 data/after_rate_calc.csv
 *.csv
