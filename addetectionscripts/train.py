@@ -12,14 +12,16 @@ from optuna.trial import FrozenTrial
 from typing import Optional, Dict
 from optuna.trial import Trial
 
+from config import training_config, transformations_config # MLFLOW_TRACKING_URI
+
 # Set optuna to log only errors
 optuna.logging.set_verbosity(optuna.logging.ERROR)
-run_name = "Test 4"
+run_name = "Test 5"
 
 class OptunaXGBoost:
     def __init__(self, run_name: str, X_train: pd.DataFrame, y_train: pd.Series, X_valid: pd.DataFrame, y_valid: pd.Series,
-                 feature_set_version: str, experiment_name: str = 'Attributed Class.', dtrain: Optional[xgb.DMatrix] = None,
-                 dvalid: Optional[xgb.DMatrix] = None, num_trials: int = 50, tracking_uri: str = r'http://127.0.0.1:8080'):
+                 feature_set_version: str, config: Dict, experiment_name: str = 'Attributed Class 2.', dtrain: Optional[xgb.DMatrix] = None,
+                 dvalid: Optional[xgb.DMatrix] = None, num_trials: int = 25, tracking_uri: str = r'http://127.0.0.1:8080'):
         """
         Initialize the OptunaXGBoost class.
 
@@ -37,6 +39,7 @@ class OptunaXGBoost:
             tracking_uri (str, optional): URI of the MLflow tracking server. Defaults to 'http://127.0.0.1:8080'.
         """
         self.run_name = run_name
+        self.config = config
         self.feature_set_version = feature_set_version
         self.num_trials = num_trials
         self.X_train = X_train
@@ -53,37 +56,39 @@ class OptunaXGBoost:
             self.dvalid = dvalid
             
         self.tracking_uri = tracking_uri
-        mlflow.set_tracking_uri(self.tracking_uri)
+        mlflow.set_tracking_uri(self.tracking_uri) ## Done in config when put to prod
         self.experiment_id = get_or_create_experiment(experiment_name)
         mlflow.set_experiment(experiment_id=self.experiment_id)
-    
-    def objective(self, trial: Trial, params: Optional[Dict[str, float]] = None) -> float:
+
+
+    def get_params(self, trial: Trial, param_config: Dict):
+        params = {}
+        for param, (ptype, *args) in param_config.items():
+            if ptype == "categorical":
+                params[param] = trial.suggest_categorical(param, args[0])
+            elif ptype == "float":
+                if len(args) == 3 and args[2] == "log":
+                    params[param] = trial.suggest_float(param, args[0], args[1], log=True)
+                else:
+                    params[param] = trial.suggest_float(param, args[0], args[1])
+            elif ptype == "int":
+                params[param] = trial.suggest_int(param, args[0], args[1])
+        return params
+
+
+    def objective(self, trial: Trial) -> float:
         """
         Objective function for XGBoost hyperparameter optimization.
 
         Args:
             trial (optuna.trial.Trial): A trial object used to explore the search space.
-            params (Optional[Dict[str, float]]): A dictionary containing XGBoost parameters. If None,
-                default parameters are suggested.
+            config (Dict): Dictonary containing the params for our trial
 
         Returns:
             float: The ROC AUC score on the validation set.
         """
         with mlflow.start_run(nested=True):
-            if params is not None:
-                params = params
-            else:
-                params = {
-                'objective': 'binary:logistic',
-                'eval_metric': 'auc',
-                'booster': trial.suggest_categorical("booster", ["gbtree", "dart"]),
-                'lambda': trial.suggest_float("lambda", 1e-8, 1.0, log=True),
-                'alpha': trial.suggest_float("alpha", 1e-8, 1.0, log=True),
-                'max_depth': trial.suggest_int("max_depth", 1, 5),
-                'eta': trial.suggest_float("eta", 1e-8, 1.0, log=True),
-                'gamma': trial.suggest_float("gamma", 1e-8, 1.0, log=True),
-                'grow_policy': trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"])
-                }
+            params = self.get_params(trial, self.config.get('xgb_params', {}))
             
             bst = xgb.train(params, self.dtrain)
             preds = bst.predict(self.dvalid)
@@ -181,11 +186,13 @@ class OptunaXGBoost:
             model_uri = mlflow.get_artifact_uri(artifact_path)
             
 
-
+## For testing locally atm
 if __name__ == "__main__":
-
+    print("Starting")
     X_us, y_us, _ = init_datasets()
+    print("Datasets initialized")
     X_us = add_hour_day_from_clicktime(X_us)
+    print("Hour/Day added")
 
     grouping_categories = [
         # IP with every other base
@@ -207,26 +214,27 @@ if __name__ == "__main__":
 
     X_us = add_groupby_user_features(X_us, grouping_categories=grouping_categories,
                                     grouping_functions=grouping_functions)
-
+    print("Groupbys added")
     X_us = add_next_click(X_us)
-
+    print("Next click added")
     cols_to_bin = ['next_click'] # Just bin the one for now
 
     X_us = log_bin_column(X_us, cols_to_bin)
-
+    print("Cols log binned")
     cols_to_drop = ['click_time']
 
     # Drop the original click_time feature
     X_us.drop(columns=cols_to_drop, inplace=True)
-
+    print("click time dropped")
     test_size = 0.2
     X_train, X_val, y_train, y_val = train_test_split(X_us, y_us, test_size=test_size, random_state=1233)
-
+    print("split data")
     # Set to Dmatrix format for training speed
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dvalid = xgb.DMatrix(X_val, label=y_val)
-
+    print("changed data to xgb dmatrix")
     booster = OptunaXGBoost(run_name=run_name, 
                 X_train=X_train, y_train=y_train, X_valid=X_val, y_valid=y_val,
-                feature_set_version=2, dtrain=dtrain, dvalid=dvalid)
+                feature_set_version=2, config=training_config, dtrain=dtrain, dvalid=dvalid)
+    print("set booster")
     booster.start_mlflow_runs()
