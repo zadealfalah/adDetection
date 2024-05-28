@@ -8,11 +8,19 @@ from config import logger
 
 
 
-def load_data(dataset_loc: str, num_samples: int = None, seed: int = 1325) -> Dataset:
+def load_data_ray(dataset_loc: str, shuffle: bool = True, num_samples: int = None, seed: int = 1325) -> Dataset:
     ds = ray.data.read_csv(dataset_loc)
     ds = ds.random_shuffle(seed=seed)
     ds = ray.data.from_items(ds.take(num_samples)) if num_samples else ds
     return ds
+
+
+## May want a version where read_csv uses n_rows instead for testing things out
+## Right now have .sample after loading them all in so that it's shuffled from the full set
+def load_data_pandas(dataset_loc: str, filename: str = 'train.csv', num_samples: int = None, seed: int = 1325) -> pd.DataFrame:
+    df = pd.read_csv(dataset_loc)
+    df = df.sample(num_samples).reset_index(drop=True) if num_samples else df
+    return df
     
 def stratify_split_ds(ds: Dataset, test_size: float = 0.2, stratify: str = 'is_attributed', shuffle: bool = True, seed: int = 1325) -> Tuple[Dataset, Dataset]:
     def _add_split(df: pd.DataFrame) -> pd.DataFrame:  
@@ -133,19 +141,17 @@ def add_next_click(df: pd.DataFrame, max_num_cats: int) -> pd.DataFrame:
     
     return df
 
-## Make in to a class so we can easily add more preprocessing steps if needed in the future
-## For now only really the transformations though
-class PreprocessData:
-    def apply_transforms(self, ds: Dataset, config: Dict,
-                    transforms: List[str] = [add_hour_day_from_clicktime, add_groupby_user_features, add_next_click, log_bin_column]) -> Dataset:
-        
-        for transform in transforms:
-            transform_name = transform.__name__
-            params = config.get(transform_name, {})
-            try:
-                ds = ds.map_batches(transform, batch_format='pandas', fn_kwargs=params)
-                logger.info(f"Applied transformation: {transform_name}")
-            except Exception as e:
-                logger.error(f"Error applying transformation {transform_name}: {e}")
-                continue
-        return ds
+
+def apply_transforms(ds: Dataset, config: Dict,
+                transforms: List[str] = [add_hour_day_from_clicktime, add_groupby_user_features, add_next_click, log_bin_column]) -> Dataset:
+    
+    for transform in transforms:
+        transform_name = transform.__name__
+        params = config.get(transform_name, {})
+        try:
+            ds = ds.map_batches(transform, batch_format='pandas', fn_kwargs=params)
+            logger.info(f"Applied transformation: {transform_name}")
+        except Exception as e:
+            logger.error(f"Error applying transformation {transform_name}: {e}")
+            continue
+    return ds

@@ -116,6 +116,11 @@ training_config = {
         'num_actors' : 1,
         'cpus_per_actor' : 1
     },
+    'ASHAScheduler_params': {
+        'max_t' : 10,
+        'grace_period' : 1,
+        'reduction_factor' : 2
+    },
     'early_stopping_rounds': 10,
     'num_boost_round' : 50
     

@@ -21,48 +21,72 @@
 from typing import Optional, Dict
 from sklearn.metrics import roc_auc_score
 
-from xgboost_ray import RayDMatrix, RayParams, train, predict
-from config import training_config
+import mlflow
 
-from ray import tune
+import xgboost as xgb
+from config import training_config, MLFLOW_TRACKING_URI, MODEL_REGISTRY
 
-ray_params = RayParams(training_config.get('ray_params', {}))
 
-def train_model(X_train, X_val, y_train, y_val, batch_size: int, config: Dict):
+from ray import train, tune
+# from ray.tune.schedulers import ASHAScheduler
+# from ray.tune.integration.xgboost import TuneReportCheckpointCallback
+from ray.air.integrations.mlflow import MLflowLoggerCallback, setup_mlflow
+
+# ray_params = RayParams(training_config.get('ray_params', {}))
+
+## experiment name is hardcoded in here for testing atm. need to switch for prod
+def train_xgb_model(X_train, X_val, y_train, y_val, batch_size: int, config: Dict, tracking_uri: str = MLFLOW_TRACKING_URI):
     
+    setup_mlflow(
+        config,
+        experiment_name='test_5',
+        tracking_uri=tracking_uri
+    )
     # Build the input matrices for XGBoost with Ray
-    dtrain = RayDMatrix(X_train, label=y_train)
-    dval = RayDMatrix(X_val, label=y_val)
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+    dval = xgb.DMatrix(X_val, label=y_val)
     
     # Train classifier
-    results = {}
-    bst = train(
+    bst = xgb.train(
         params=config.get('xgb_params', {}),
         dtrain=dtrain,
-        num_boost_round=config.get('num_boost_round', 50),
+        # num_boost_round=config.get('num_boost_round', 50),
         evals=[(dtrain, 'train'), (dval, 'eval')],
-        # callbacks=[log_callback],
-        ray_params=ray_params,
-        results=results,
-        early_stopping_rounds=config.get('early_stopping_rounds', 10)
         )
     
-    bst.save_model('model.xgb')
-    # preds = bst.predict(dval)
-    # auc_score = roc_auc_score(y_val, preds)
-    
-    
-    
-    # train.report(roc_auc=auc_score)
+    preds = bst.predict(dval)
+    auc_score = roc_auc_score(y_val, preds)
+    mlflow.log_params(config.get('xgb_params', {}))
+    mlflow.log_metric('auc', auc_score)
+    train.report(roc_auc=auc_score)
 
 
-analysis = tune.run(
-    train_model,
-    config=training_config,
-    metric='auc',
-    mode='max',
-    resources_per_trial=ray_params.get_tune_resources()
-)
+
+## Experiment name is hardcoded in here right now, need to change for prod
+def tune_xgb(config: Dict):
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI) # unneeded in final as it's set in config
+    mlflow.set_experiment(experiment_name='test_5') # must change to be dynamic in final
+    
+    tuner = tune.Tuner(
+        train_xgb_model,
+        tune_config=tune.TuneConfig(num_samples=5),
+        run_config=train.RunConfig(
+            name='mlflow',
+            callbacks=[
+                MLflowLoggerCallback(
+                    tracking_uri=MLFLOW_TRACKING_URI,
+                    experiment_name='test_5',
+                    save_artifact=True
+                )
+            ]
+        ),
+        param_space=config
+    )
+    results = tuner.fit()
+    return results
+
+
+    
 
 
 # class OptunaXGBoost:
