@@ -1,6 +1,7 @@
-import mlflow 
+import mlflow
 from optuna_integration.mlflow import MLflowCallback
 from config import MLFLOW_TRACKING_URI
+
 
 def get_or_create_experiment(experiment_name: str) -> str:
     """
@@ -12,10 +13,7 @@ def get_or_create_experiment(experiment_name: str) -> str:
     Returns:
         str: The ID of the existing or newly created experiment.
     """
-    if experiment:= mlflow.get_experiment_by_name(experiment_name):
+    if experiment := mlflow.get_experiment_by_name(experiment_name):
         return experiment.experiment_id
     else:
         return mlflow.create_experiment(experiment_name)
-
-
-

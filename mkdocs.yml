@@ -5,6 +5,9 @@ nav:
   - addetectionscripts:
     - data: addetectionscripts/transforms.md
     - train: addetectionscripts/train.md
+    - transforms: addetectionscripts/transforms.md
+    - plots: addetectionscripts/plots.md
+    - config: addetectionscripts/config.md
     - utils: addetectionscripts/utils.md
 theme: readthedocs
 plugins:
