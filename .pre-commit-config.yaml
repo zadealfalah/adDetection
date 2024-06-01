@@ -9,7 +9,7 @@ repos:
     -   id: check-merge-conflict
     -   id: check-yaml
     -   id: check-added-large-files
-        args: ['--maxkb=35000']
+        args: ['--maxkb=1000']
         exclude: "notebooks"
     -   id: check-yaml
         exclude: "mkdocs.yml"
