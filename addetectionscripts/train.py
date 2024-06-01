@@ -4,7 +4,7 @@ import optuna
 from plots import *
 from transforms import *
 from utils import *
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 
 from optuna.study import Study
@@ -16,7 +16,7 @@ from config import training_config, transformations_config  # MLFLOW_TRACKING_UR
 
 # Set optuna to log only errors
 optuna.logging.set_verbosity(optuna.logging.ERROR)
-run_name = "Test 5"
+run_name = "Test With Full Training"
 
 
 class OptunaXGBoost:
@@ -121,12 +121,25 @@ class OptunaXGBoost:
             # train_auc_score = roc_auc_score(self.y_valid, train_preds)
 
             # Get the validaiton predicts/scores for graphing and optimizing
-            valid_preds = bst.predict(self.dvalid)
+            valid_preds = bst.predict(self.dvalid) # Gives proba even though we use .predict here
             valid_auc_score = roc_auc_score(self.y_valid, valid_preds)
+            valid_class_labels = (valid_preds >= 0.5).astype(int)
+
+            # Below for making sure .predict is correct now
+            # Want to comapre this result to the auc score itself
+            label_auc_score = roc_auc_score(self.y_valid, valid_class_labels)
+
+            # Get confusion matrix values
+            tn, fp, fn, tp = confusion_matrix(self.y_valid, valid_class_labels).ravel()
 
             # Log to mlflow
             mlflow.log_params(params)
             mlflow.log_metric("auc", valid_auc_score)
+            mlflow.log_metric("label_auc_score", label_auc_score)
+            mlflow.log_metric("tn", tn)
+            mlflow.log_metric("fp", fp)
+            mlflow.log_metric("fn", fn)
+            mlflow.log_metric("tp", tp)
             # mlflow.log_metric("train_auc", train_auc_score)
 
         return valid_auc_score
@@ -176,9 +189,11 @@ class OptunaXGBoost:
 
             # Optimize hparams
             study.optimize(self.objective, n_trials=self.num_trials, callbacks=[self.best_trial_callback])
-            # Log best params/score
+
+            # Log best params
             mlflow.log_params(study.best_params)
-            mlflow.log_metric("best_auc", study.best_value)
+            # mlflow.log_metric("best_auc", study.best_value) # Same as 'auc' below, ignore
+
 
             # Set log tags
             mlflow.set_tags(
@@ -192,6 +207,25 @@ class OptunaXGBoost:
 
             # Log a fit model instance
             model = xgb.train(study.best_params, self.dtrain)
+
+
+            # Get validation predics/scores from best model
+            best_valid_preds = model.predict(self.dvalid)
+            best_valid_auc_score = roc_auc_score(self.y_valid, best_valid_preds)
+            best_valid_class_labels = (best_valid_preds >= 0.5).astype(int) # Need for confusion matrix
+            # best_label_auc_score = roc_auc_score(self.y_valid, best_valid_class_labels)
+            tn, fp, fn, tp = confusion_matrix(self.y_valid, best_valid_class_labels).ravel()
+
+
+            # Log to mlflow
+            mlflow.log_metric("auc", best_valid_auc_score)
+            # mlflow.log_metric("label_auc_score", best_label_auc_score) # Matched up correctly, don't need
+            mlflow.log_metric("tn", tn)
+            mlflow.log_metric("fp", fp)
+            mlflow.log_metric("fn", fn)
+            mlflow.log_metric("tp", tp)
+
+
 
             # Log the correlation plot
             correlations = plot_correlation(self.X_train, self.y_train, target_col="is_attributed")
@@ -218,12 +252,16 @@ class OptunaXGBoost:
 ## For testing locally atm
 if __name__ == "__main__":
     print("Starting")
-    X_us, y_us, _ = init_datasets()
+    # X_us, y_us, _ = init_datasets()
+    X_full, y_full = init_full_datasets()
 
-    X_us, y_us = apply_transformations(X_us, y_us)
+    # X_us, y_us = apply_transformations(X_us, y_us)
+    X_full, y_full = apply_transformations(X_full, y_full)
 
     print("Splitting datasets")
-    X_train, X_val, y_train, y_val, dtrain, dvalid = split_final_datasets(X_us, y_us)
+    # X_train, X_val, y_train, y_val, dtrain, dvalid = split_final_datasets(X_us, y_us)
+    X_train, X_val, y_train, y_val, dtrain, dvalid = split_final_datasets(X_full, y_full)
+
     print("datasets split")
 
     print("Starting booster")

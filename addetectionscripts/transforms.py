@@ -6,6 +6,30 @@ from sklearn.model_selection import train_test_split
 from config import transformations_config, logger
 
 
+def init_full_datasets(data_folder: str = "datasets") -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Reads the full training csv into pandas dataframes.
+    Used just for last-stage testing at the moment.
+
+    Example usage:
+        X_full, y_full = init_full_datasets('raw_data')
+
+    Args:
+        data_folder (str): Path to the folder containing the CSV files.
+
+    Returns:
+        tuple: A tuple containing three pandas DataFrames: (X_us, y_us, test).
+    """
+    # Read CSV files into pandas DataFrames
+    df = pd.read_csv(f"../{data_folder}/train.csv")
+    y_full = df[['is_attributed']]
+    X_full = df.drop(columns=['attributed_time', 'is_attributed'])
+    X_full['click_time'] = pd.to_datetime(X_full['click_time'])
+
+    return X_full, y_full
+
+
+
 def init_datasets(data_folder: str = "datasets", to_load: List[str] = ["X_us", "y_us", "test"]) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Reads the split CSV files into pandas DataFrames.
@@ -159,7 +183,7 @@ def apply_transformations(
             Xdf = transform(Xdf, **transform_params)
             logger.info(f"Applied transformation: {transform_name} \n" f"Using params {transform_params}")
         except Exception as e:
-            logger.error(f"Error applying transformation: {transform_name} \n" f"Using params {transform_params}")
+            logger.error(f"Error applying transformation: {transform_name} \n" f"Using params {transform_params}: {e}")
             continue
     Xdf.drop(columns=["click_time"], inplace=True)  # Drop the original click_time feature
     return Xdf, ydf

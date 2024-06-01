@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import xgboost as xgb
 from typing import Optional, Tuple, Any
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
 def plot_correlation(
@@ -62,3 +63,9 @@ def plot_feature_importance(model: xgb.XGBModel, booster: str) -> plt.Figure:
     plt.tight_layout()
     plt.close(fig)
     return fig
+
+
+## Currently have all values logged (tp, fp, tn, fn).  Can plot later if required
+# def plot_confusion_matrix(model: xgb.XGBModel, booster: str) -> plt.Figure:
+
+#     fig, ax = plt.subplots(figsize=(10,8))

@@ -1,6 +1,8 @@
 import mlflow
 from optuna_integration.mlflow import MLflowCallback
 from config import MLFLOW_TRACKING_URI
+from typing import Dict
+import json
 
 
 def get_or_create_experiment(experiment_name: str) -> str:
@@ -17,3 +19,17 @@ def get_or_create_experiment(experiment_name: str) -> str:
         return experiment.experiment_id
     else:
         return mlflow.create_experiment(experiment_name)
+
+
+def load_dict(path: str) -> Dict:
+    """Load a dictionary from a JSON's filepath.
+
+    Args:
+        path (str): location of file.
+
+    Returns:
+        Dict: loaded JSON data.
+    """
+    with open(path) as fp:
+        d = json.load(fp)
+    return d
