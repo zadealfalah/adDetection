@@ -22,12 +22,11 @@ def init_full_datasets(data_folder: str = "datasets") -> Tuple[pd.DataFrame, pd.
     """
     # Read CSV files into pandas DataFrames
     df = pd.read_csv(f"../{data_folder}/train.csv")
-    y_full = df[['is_attributed']]
-    X_full = df.drop(columns=['attributed_time', 'is_attributed'])
-    X_full['click_time'] = pd.to_datetime(X_full['click_time'])
+    y_full = df[["is_attributed"]]
+    X_full = df.drop(columns=["attributed_time", "is_attributed"])
+    X_full["click_time"] = pd.to_datetime(X_full["click_time"])
 
     return X_full, y_full
-
 
 
 def init_datasets(data_folder: str = "datasets", to_load: List[str] = ["X_us", "y_us", "test"]) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -210,3 +209,16 @@ def split_final_datasets(
     dvalid = DMatrix(X_val, label=y_val)
 
     return X_train, X_val, y_train, y_val, dtrain, dvalid
+
+
+class CustomPreprocessor:
+    def __init__(
+        self,
+        config: Dict = transformations_config,
+        transforms: List[str] = [add_hour_day_from_clicktime, add_groupby_user_features, add_next_click, log_bin_column],
+    ):
+        self.config = config
+        self.transforms = transforms
+
+    def transform(self, Xdf: pd.DataFrame, ydf: pd.DataFrame):
+        return apply_transformations(Xdf, ydf, self.config, self.transforms)

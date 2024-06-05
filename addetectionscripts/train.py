@@ -121,7 +121,7 @@ class OptunaXGBoost:
             # train_auc_score = roc_auc_score(self.y_valid, train_preds)
 
             # Get the validaiton predicts/scores for graphing and optimizing
-            valid_preds = bst.predict(self.dvalid) # Gives proba even though we use .predict here
+            valid_preds = bst.predict(self.dvalid)  # Gives proba even though we use .predict here
             valid_auc_score = roc_auc_score(self.y_valid, valid_preds)
             valid_class_labels = (valid_preds >= 0.5).astype(int)
 
@@ -194,7 +194,6 @@ class OptunaXGBoost:
             mlflow.log_params(study.best_params)
             # mlflow.log_metric("best_auc", study.best_value) # Same as 'auc' below, ignore
 
-
             # Set log tags
             mlflow.set_tags(
                 tags={
@@ -208,14 +207,12 @@ class OptunaXGBoost:
             # Log a fit model instance
             model = xgb.train(study.best_params, self.dtrain)
 
-
             # Get validation predics/scores from best model
             best_valid_preds = model.predict(self.dvalid)
             best_valid_auc_score = roc_auc_score(self.y_valid, best_valid_preds)
-            best_valid_class_labels = (best_valid_preds >= 0.5).astype(int) # Need for confusion matrix
+            best_valid_class_labels = (best_valid_preds >= 0.5).astype(int)  # Need for confusion matrix
             # best_label_auc_score = roc_auc_score(self.y_valid, best_valid_class_labels)
             tn, fp, fn, tp = confusion_matrix(self.y_valid, best_valid_class_labels).ravel()
-
 
             # Log to mlflow
             mlflow.log_metric("auc", best_valid_auc_score)
@@ -224,8 +221,6 @@ class OptunaXGBoost:
             mlflow.log_metric("fp", fp)
             mlflow.log_metric("fn", fn)
             mlflow.log_metric("tp", tp)
-
-
 
             # Log the correlation plot
             correlations = plot_correlation(self.X_train, self.y_train, target_col="is_attributed")
@@ -248,33 +243,41 @@ class OptunaXGBoost:
             # Get logged model uri for loading from artifact store
             model_uri = mlflow.get_artifact_uri(artifact_path)
 
+    @classmethod
+    def load(cls, args_fp):
+        with open(args_fp, "r") as fp:
+            kwargs = json.loads(fp=fp)
 
-## For testing locally atm
-if __name__ == "__main__":
-    print("Starting")
-    # X_us, y_us, _ = init_datasets()
-    X_full, y_full = init_full_datasets()
+        model = xgb.Booster.load_model(**kwargs)
+        return model
 
-    # X_us, y_us = apply_transformations(X_us, y_us)
-    X_full, y_full = apply_transformations(X_full, y_full)
 
-    print("Splitting datasets")
-    # X_train, X_val, y_train, y_val, dtrain, dvalid = split_final_datasets(X_us, y_us)
-    X_train, X_val, y_train, y_val, dtrain, dvalid = split_final_datasets(X_full, y_full)
+# ## For testing locally atm
+# if __name__ == "__main__":
+#     print("Starting")
+#     # X_us, y_us, _ = init_datasets()
+#     X_full, y_full = init_full_datasets()
 
-    print("datasets split")
+#     # X_us, y_us = apply_transformations(X_us, y_us)
+#     X_full, y_full = apply_transformations(X_full, y_full)
 
-    print("Starting booster")
-    booster = OptunaXGBoost(
-        run_name=run_name,
-        X_train=X_train,
-        y_train=y_train,
-        X_valid=X_val,
-        y_valid=y_val,
-        feature_set_version=2,
-        config=training_config,
-        dtrain=dtrain,
-        dvalid=dvalid,
-    )
-    print("set booster")
-    booster.start_mlflow_runs()
+#     print("Splitting datasets")
+#     # X_train, X_val, y_train, y_val, dtrain, dvalid = split_final_datasets(X_us, y_us)
+#     X_train, X_val, y_train, y_val, dtrain, dvalid = split_final_datasets(X_full, y_full)
+
+#     print("datasets split")
+
+#     print("Starting booster")
+#     booster = OptunaXGBoost(
+#         run_name=run_name,
+#         X_train=X_train,
+#         y_train=y_train,
+#         X_valid=X_val,
+#         y_valid=y_val,
+#         feature_set_version=2,
+#         config=training_config,
+#         dtrain=dtrain,
+#         dvalid=dvalid,
+#     )
+#     print("set booster")
+#     booster.start_mlflow_runs()
