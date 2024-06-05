@@ -3,9 +3,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import xgboost as xgb
 from typing import Optional, Tuple, Any
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-def plot_correlation(X: pd.DataFrame, y_df: pd.DataFrame, target_col: str = 'is_attributed',
-                     save_path: Optional[str] = None, plot_size: Tuple[int, int] = (12, 8)) -> plt.Figure:
+
+def plot_correlation(
+    X: pd.DataFrame, y_df: pd.DataFrame, target_col: str = "is_attributed", save_path: Optional[str] = None, plot_size: Tuple[int, int] = (12, 8)
+) -> plt.Figure:
     """
     Plot correlation between features and a target variable.
 
@@ -24,44 +27,45 @@ def plot_correlation(X: pd.DataFrame, y_df: pd.DataFrame, target_col: str = 'is_
     X_df[target_col] = y_df[target_col]
     # Get corr values w/ all vars wrt the target
     correlations = X_df.corr()[target_col].drop(target_col).sort_values()
-    
+
     # Make bar plot
     fig = plt.figure(figsize=plot_size)
     plt.barh(correlations.index, correlations.values)
-    
+
     # Set Labels
-    plt.title(f'Correlation with {target_col}')
-    plt.xlabel('Correlation Coefficient')
-    plt.ylabel('Variable')
-    plt.grid(axis='x')
+    plt.title(f"Correlation with {target_col}")
+    plt.xlabel("Correlation Coefficient")
+    plt.ylabel("Variable")
+    plt.grid(axis="x")
     plt.tight_layout()
-        
+
     if save_path:
-        plt.savefig(save_path, format='png', dpi=600)
-        
+        plt.savefig(save_path, format="png", dpi=600)
+
     plt.close(fig)
     return fig
 
 
-def plot_feature_importance(model: Any, booster: str) -> plt.Figure:
+def plot_feature_importance(model: xgb.XGBModel, booster: str) -> plt.Figure:
     """
     Plot feature importance based on the provided XGBoost model.
 
     Args:
-        model (Any): The trained XGBoost model.
+        model (xgb.XGBModel): The trained XGBoost model.
         booster (str): The booster type used in the XGBoost model.
 
     Returns:
         plt.Figure: The matplotlib Figure object.
     """
-    fig, ax = plt.subplots(figsize=(10,8))
-    importance_type = 'gain'
-    xgb.plot_importance(
-        model,
-        importance_type=importance_type,
-        ax=ax,
-        title=f"Feature Importance Based On {importance_type}"
-    )
+    fig, ax = plt.subplots(figsize=(10, 8))
+    importance_type = "gain"
+    xgb.plot_importance(model, importance_type=importance_type, ax=ax, title=f"Feature Importance Based On {importance_type}")
     plt.tight_layout()
     plt.close(fig)
     return fig
+
+
+## Currently have all values logged (tp, fp, tn, fn).  Can plot later if required
+# def plot_confusion_matrix(model: xgb.XGBModel, booster: str) -> plt.Figure:
+
+#     fig, ax = plt.subplots(figsize=(10,8))
